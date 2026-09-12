@@ -1,6 +1,6 @@
 # GameBoy Spider Solitaire
 
-Spider solitaire on the GameBoy. Features 1, 2, and 4 suit games, a leaderboard, and animations. Written in C, utilizing the [GBDK](https://github.com/gbdk-2020/gbdk-2020) compiler and libraries.
+Spider solitaire for the GameBoy. Features 1, 2, and 4 suit games, a leaderboard, and animations. Written in C, utilizing the [GBDK](https://github.com/gbdk-2020/gbdk-2020) compiler and libraries.
 
 ## Usage
 The game can be played by running the [ROM](https://github.com/wojciech-graj/GB-Solitaire/blob/master/Solitaire.gb) (filename: Solitaire.gb) on either a GameBoy or emulator.\

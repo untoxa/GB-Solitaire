@@ -1,4 +1,6 @@
-#include <gb/gb.h>
+#pragma dataseg DATA_0
+
+#include <gbdk/platform.h>
 
 #include "nvram.h"
 

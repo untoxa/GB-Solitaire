@@ -4,17 +4,17 @@
 * Description: Spider solitaire on the gameboy
 */
 
-#include <gb/font.h>
-#include <gb/gb.h>
-#include <gb/metasprites.h>
+#include <gbdk/platform.h>
+#include <gbdk/metasprites.h>
+#include <gbdk/font.h>
 
 #include <rand.h>
 
-#include "../res/card.h"
-#include "../res/cursor.h"
-#include "../res/menu.h"
-#include "../res/nvram/nvram.h"
-#include "../res/regular_metasprite.h"
+#include "card.h"
+#include "cursor.h"
+#include "menu.h"
+#include "nvram.h"
+#include "regular_metasprite.h"
 
 //TODO: music
 //TODO: BUGFIX: full piles aren't always folded
@@ -25,19 +25,19 @@
 
 #define N_FONT 36u
 
-#define OFFSET_BKG_NONE 0u
-#define OFFSET_BKG_FONT 1u
+#define OFFSET_BKG_NONE 128u
+#define OFFSET_BKG_FONT OFFSET_BKG_NONE + 1u
 #define OFFSET_BKG_FONT_ADDON (OFFSET_BKG_FONT + N_FONT)
 #define OFFSET_BKG_CARD_ADDON (OFFSET_BKG_FONT_ADDON + N_FONT_ADDON)
 #define OFFSET_BKG_BUTTON (OFFSET_BKG_CARD_ADDON + N_CARD_ADDON)
 
-#define OFFSET_BKG_TITLE 128u
+#define OFFSET_BKG_TITLE 0u
 #define OFFSET_BKG_CARD (OFFSET_BKG_TITLE + N_TITLE)
 
 #define OFFSET_SPRITE_NONE 0u
-#define OFFSET_SPRITE_CURSOR 1u
+#define OFFSET_SPRITE_CURSOR 106u
 
-#define OFFSET_SPRITE_TITLE 128u
+#define OFFSET_SPRITE_TITLE 0u
 #define OFFSET_SPRITE_CARD (OFFSET_SPRITE_TITLE + N_TITLE)
 
 #define SPRITE_DYNAMIC 0u
@@ -109,6 +109,16 @@
 #define LEADERBOARD_PAD_Y 4u
 
 #define START_SCORE 500u
+
+#ifdef SEGA
+#define MAP_OVERLAP_SPR __WRITE_VDP_REG(VDP_R2, R2_MAP_0x3800);__WRITE_VDP_REG(VDP_R5, R5_SAT_0x3F00);
+#define MAP_OVERLAP_BKG __WRITE_VDP_REG(VDP_R2, R2_MAP_0x1800);__WRITE_VDP_REG(VDP_R5, R5_SAT_0x1F00);
+#define NEXT_VRAM_BYTE 2u
+#else
+#define MAP_OVERLAP_SPR
+#define MAP_OVERLAP_BKG
+#define NEXT_VRAM_BYTE 1u
+#endif
 
 /*******************************************************************************
 *	STRUCTS
@@ -345,27 +355,22 @@ void main(void);
 
 inline void clear_bkg_2x1(const UINT8 x, const UINT8 y)
 {
-	set_bkg_tile_xy(x, y, OFFSET_BKG_NONE);
-	set_bkg_tile_xy(x + 1u, y, OFFSET_BKG_NONE);
+	set_vram_byte(set_bkg_tile_xy(x, y, OFFSET_BKG_NONE) + NEXT_VRAM_BYTE, OFFSET_BKG_NONE);
 }
 
 void draw_card_top(const UINT8 x, const UINT8 y, const UINT8 card_data)
 {
 	if (VISIBLE(card_data)) {
-		set_bkg_tile_xy(x, y, RANK(card_data) + OFFSET_BKG_CARD + OFFSET_CARD_RANK);
-		set_bkg_tile_xy(x + 1u, y, SUIT(card_data) + OFFSET_BKG_CARD + OFFSET_CARD_SUIT);
+		set_vram_byte(set_bkg_tile_xy(x, y, RANK(card_data) + OFFSET_BKG_CARD + OFFSET_CARD_RANK) + NEXT_VRAM_BYTE, SUIT(card_data) + OFFSET_BKG_CARD + OFFSET_CARD_SUIT);
 	} else {
-		set_bkg_tile_xy(x, y, OFFSET_BKG_CARD + OFFSET_CARD_BACK);
-		set_bkg_tile_xy(x + 1u, y, OFFSET_BKG_CARD + OFFSET_CARD_BACK + 1u);
+		set_vram_byte(set_bkg_tile_xy(x, y, OFFSET_BKG_CARD + OFFSET_CARD_BACK) + NEXT_VRAM_BYTE, OFFSET_BKG_CARD + OFFSET_CARD_BACK + 1u);
 	}
 }
 
 void draw_card_bottom(const UINT8 x, const UINT8 y, const UINT8 card_data)
 {
-	set_bkg_tile_xy(x, y, OFFSET_BKG_CARD + OFFSET_CARD_BLANK + 2u);
-	set_bkg_tile_xy(x + 1u, y, OFFSET_BKG_CARD + OFFSET_CARD_BLANK + 3u);
-	set_bkg_tile_xy(x, y + 1u, SUIT(card_data) + OFFSET_BKG_CARD + OFFSET_CARD_SUIT_ROT);
-	set_bkg_tile_xy(x + 1u, y + 1u, RANK(card_data) + OFFSET_BKG_CARD + OFFSET_CARD_RANK_ROT);
+	set_vram_byte(set_bkg_tile_xy(x, y, OFFSET_BKG_CARD + OFFSET_CARD_BLANK + 2u) + NEXT_VRAM_BYTE, OFFSET_BKG_CARD + OFFSET_CARD_BLANK + 3u);
+	set_vram_byte(set_bkg_tile_xy(x, y + 1u, SUIT(card_data) + OFFSET_BKG_CARD + OFFSET_CARD_SUIT_ROT) + NEXT_VRAM_BYTE, RANK(card_data) + OFFSET_BKG_CARD + OFFSET_CARD_RANK_ROT);
 }
 
 inline void draw_card(const UINT8 x, const UINT8 y, const UINT8 card_data)
@@ -376,21 +381,14 @@ inline void draw_card(const UINT8 x, const UINT8 y, const UINT8 card_data)
 
 void draw_sequential_card(const UINT8 x, const UINT8 y, const UINT8 bkg_offset)
 {
-	set_bkg_tile_xy(x, y, bkg_offset);
-	set_bkg_tile_xy(x + 1u, y, bkg_offset + 1u);
-	set_bkg_tile_xy(x, y + 1u, bkg_offset + 2u);
-	set_bkg_tile_xy(x + 1u, y + 1u, bkg_offset + 3u);
-	set_bkg_tile_xy(x, y + 2u, bkg_offset + 4u);
-	set_bkg_tile_xy(x + 1u, y + 2u, bkg_offset + 5u);
+	set_vram_byte(set_bkg_tile_xy(x, y, bkg_offset) + NEXT_VRAM_BYTE, bkg_offset + 1u);
+	set_vram_byte(set_bkg_tile_xy(x, y + 1u, bkg_offset + 2u) + NEXT_VRAM_BYTE, bkg_offset + 3u);
+	set_vram_byte(set_bkg_tile_xy(x, y + 2u, bkg_offset + 4u) + NEXT_VRAM_BYTE, bkg_offset + 5u);
 }
 
-//TODO: this is tremendously inefficient and could probably be done using some sort of memset
-void clear_bkg(void)
+inline void clear_bkg(void)
 {
-	UINT8 x, y;
-	for (x = 0; x < 32u; x++)
-		for (y = 0; y < 32u; y++)
-			set_bkg_tile_xy(x, y, 0);
+	fill_bkg_rect(0, 0, DEVICE_SCREEN_BUFFER_WIDTH, DEVICE_SCREEN_BUFFER_HEIGHT, OFFSET_BKG_NONE);
 }
 
 void draw_bkg_game(void)
@@ -417,34 +415,34 @@ void draw_bkg_splash_screen(void)
 	set_bkg_tile_xy(3u, 9u, OFFSET_BKG_BUTTON + OFFSET_BUTTON_START);
 	set_bkg_tile_xy(4u, 9u, OFFSET_BKG_BUTTON + OFFSET_BUTTON_START + 1u);
 	set_bkg_tile_xy(5u, 9u, OFFSET_BKG_BUTTON + OFFSET_BUTTON_START + 2u);
-	set_bkg_tiles(7u, 9u, START_TEXT_LEN, 1u, start_text);
+	set_bkg_based_tiles(7u, 9u, START_TEXT_LEN, 1u, start_text, OFFSET_BKG_NONE);
 
 	set_bkg_tile_xy(2u, 10u, OFFSET_BKG_BUTTON + OFFSET_BUTTON_SYMBOL);
 	set_bkg_tile_xy(3u, 10u, OFFSET_BKG_BUTTON + OFFSET_BUTTON_SELECT);
 	set_bkg_tile_xy(4u, 10u, OFFSET_BKG_BUTTON + OFFSET_BUTTON_SELECT + 1u);
 	set_bkg_tile_xy(5u, 10u, OFFSET_BKG_BUTTON + OFFSET_BUTTON_SELECT + 2u);
-	set_bkg_tiles(7u, 10u, LEADERBOARD_TEXT_LEN, 1u, leaderboard_text);
+	set_bkg_based_tiles(7u, 10u, LEADERBOARD_TEXT_LEN, 1u, leaderboard_text, OFFSET_BKG_NONE);
 
-	set_bkg_tiles(0, 15u, COPYRIGHT_TEXT_LEN, 1u, copyright_text);
+	set_bkg_based_tiles(0, 15u, COPYRIGHT_TEXT_LEN, 1u, copyright_text, OFFSET_BKG_NONE);
 }
 
 void draw_bkg_settings(void)
 {
-	set_bkg_tiles(SETTINGS_SPLIT_X - SUITS_TEXT_LEN, SETTINGS_PAD_Y + 1u, SUITS_TEXT_LEN, 1u, suits_text);
+	set_bkg_based_tiles(SETTINGS_SPLIT_X - SUITS_TEXT_LEN, SETTINGS_PAD_Y + 1u, SUITS_TEXT_LEN, 1u, suits_text, OFFSET_BKG_NONE);
 	set_bkg_tiles(SETTINGS_SPLIT_X, SETTINGS_PAD_Y, 2u, 3u, menu_card_tiles[MENU_CARD_ONE_SUIT]);
 	set_bkg_tiles(SETTINGS_SPLIT_X + 2u, SETTINGS_PAD_Y, 2u, 3u, menu_card_tiles[MENU_CARD_TWO_SUIT]);
 	set_bkg_tiles(SETTINGS_SPLIT_X + 4u, SETTINGS_PAD_Y, 2u, 3u, menu_card_tiles[MENU_CARD_FOUR_SUIT]);
 
-	set_bkg_tiles(SETTINGS_SPLIT_X - MUSIC_TEXT_LEN, SETTINGS_PAD_Y + 5u, MUSIC_TEXT_LEN, 1u, music_text);
+	set_bkg_based_tiles(SETTINGS_SPLIT_X - MUSIC_TEXT_LEN, SETTINGS_PAD_Y + 5u, MUSIC_TEXT_LEN, 1u, music_text, OFFSET_BKG_NONE);
 	set_bkg_tiles(SETTINGS_SPLIT_X, SETTINGS_PAD_Y + 4u, 2u, 3u, menu_card_tiles[MENU_CARD_MUSIC]);
 	set_bkg_tiles(SETTINGS_SPLIT_X + 2u, SETTINGS_PAD_Y + 4u, 2u, 3u, menu_card_tiles[MENU_CARD_NO_MUSIC]);
 
-	set_bkg_tiles(SETTINGS_SPLIT_X - SPEED_TEXT_LEN, SETTINGS_PAD_Y + 9u, SPEED_TEXT_LEN, 1u, speed_text);
+	set_bkg_based_tiles(SETTINGS_SPLIT_X - SPEED_TEXT_LEN, SETTINGS_PAD_Y + 9u, SPEED_TEXT_LEN, 1u, speed_text, OFFSET_BKG_NONE);
 	set_bkg_tiles(SETTINGS_SPLIT_X, SETTINGS_PAD_Y + 8u, 2u, 3u, menu_card_tiles[MENU_CARD_ANIMATION_SLOW]);
 	set_bkg_tiles(SETTINGS_SPLIT_X + 2u, SETTINGS_PAD_Y + 8u, 2u, 3u, menu_card_tiles[MENU_CARD_ANIMATION_MEDIUM]);
 	set_bkg_tiles(SETTINGS_SPLIT_X + 4u, SETTINGS_PAD_Y + 8u, 2u, 3u, menu_card_tiles[MENU_CARD_ANIMATION_FAST]);
 
-	set_bkg_tiles(SETTINGS_SPLIT_X - START_TEXT_LEN, SETTINGS_PAD_Y + 13u, START_TEXT_LEN, 1u, start_text);
+	set_bkg_based_tiles(SETTINGS_SPLIT_X - START_TEXT_LEN, SETTINGS_PAD_Y + 13u, START_TEXT_LEN, 1u, start_text, OFFSET_BKG_NONE);
 	draw_sequential_card(SETTINGS_SPLIT_X, SETTINGS_PAD_Y + 12u, OFFSET_BKG_CARD + OFFSET_CARD_BACK);
 }
 
@@ -461,7 +459,7 @@ inline void draw_bkg_leaderboard_score(const UINT8 x, const UINT8 y, const UINT1
 //RAM_MBC1 must be enabled
 void draw_bkg_leaderboard(void)
 {
-	set_bkg_tiles(4u, 1u, LEADERBOARD_TEXT_LEN, 1u, leaderboard_text);
+	set_bkg_based_tiles(4u, 1u, LEADERBOARD_TEXT_LEN, 1u, leaderboard_text, OFFSET_BKG_NONE);
 
 	set_bkg_tiles(LEADERBOARD_CARD_X, LEADERBOARD_PAD_Y, 2u, 3u, menu_card_tiles[MENU_CARD_ONE_SUIT]);
 	set_bkg_tiles(LEADERBOARD_CARD_X, LEADERBOARD_PAD_Y + 4u, 2u, 3u, menu_card_tiles[MENU_CARD_TWO_SUIT]);
@@ -472,7 +470,7 @@ void draw_bkg_leaderboard(void)
 	for (i = 0; i < 3; i++) {
 		for (j = 0; j < 3; j++) {
 			UINT8 y = LEADERBOARD_PAD_Y + i * 4u + j;
-			set_bkg_tiles(LEADERBOARD_NAME_X, y, 3u, 1u, iter->name);
+			set_bkg_based_tiles(LEADERBOARD_NAME_X, y, 3u, 1u, iter->name, OFFSET_BKG_NONE);
 			draw_bkg_leaderboard_score(LEADERBOARD_SCORE_X, y, iter->score);
 			iter++;
 		}
@@ -483,13 +481,9 @@ void draw_bkg_leaderboard(void)
 *	metasprite
 *******************************************************************************/
 
-void metasprite_2x3_hide(const UINT8 sprite)
+inline void metasprite_2x3_hide(const UINT8 sprite)
 {
-	move_metasprite(metasprite_same_2x3,
-		OFFSET_SPRITE_NONE,
-		sprite,
-		0,
-		0);
+	hide_sprites_range(sprite, sprite + (2 * 3));
 }
 
 void set_metasprite_card(const UINT8 card_data)
@@ -593,6 +587,7 @@ void dynamic_metasprite_fold_pile(void)
 			add_leaderboard();
 			start_leaderboard();
 			score = START_SCORE;
+			num_folded_piles = 0;
 		}
 		return;
 	}
@@ -751,7 +746,7 @@ void cursor_adjust_height(void)
 {
 	Pile *pile = IDX_PTR(piles, cursor.pile_idx);
 	if (cursor.height >= pile->height)
-		cursor.height = pile->height - !!pile->height;
+		cursor.height = pile->height - ((pile->height) ? 1 : 0);
 }
 
 inline void cursor_grab_stack(void)
@@ -832,9 +827,10 @@ void change_cursor_height(const INT8 inc)
 inline void cursor_process(void)
 {
 	switch (flags & FLAG_GAME_STATE) {
-	case FLAG_GAME_STATE_SPLASH:
-		return;
+		case FLAG_GAME_STATE_SPLASH:
+			return;
 	}
+
 	cursor.anim_ctr++;
 	cursor.anim_ctr &= (1u << (CURSOR_PERIOD_LOGSCALE + 1u)) - 1u;
 	UINT8 prev_anim_frame = cursor.anim_frame;
@@ -845,35 +841,36 @@ inline void cursor_process(void)
 	if (flags & FLAG_REDRAW_CURSOR) {
 		flags &= ~FLAG_REDRAW_CURSOR;
 		switch (flags & FLAG_GAME_STATE) {
-		case FLAG_GAME_STATE_SETTINGS:
-			move_metasprite(cursor_metasprites[cursor.anim_frame],
-				OFFSET_SPRITE_CURSOR + OFFSET_CURSOR_FRAME,
-				SPRITE_FRAME,
-				cursor.height * 16u + SETTINGS_SPLIT_X * 8u,
-				SETTINGS_PAD_Y * 8u + cursor.pile_idx * 32u);
-			break;
-		case FLAG_GAME_STATE_LEADERBOARD:
-			if (selected_leaderboard) {
-				set_sprite_tile(SPRITE_FRAME, OFFSET_SPRITE_CURSOR + OFFSET_CURSOR_UNDERLINE + cursor.anim_frame);
-				move_sprite(SPRITE_FRAME, (LEADERBOARD_NAME_X + 1u) * 8u + cursor.pile_idx * 8u, 16u + cursor.height * 8u);
-			}
-			break;
-		case FLAG_GAME_STATE_INGAME:
-			if (cursor.pile_idx == PILE_IDX_DECK)
+			case FLAG_GAME_STATE_SETTINGS:
 				move_metasprite(cursor_metasprites[cursor.anim_frame],
 					OFFSET_SPRITE_CURSOR + OFFSET_CURSOR_FRAME,
 					SPRITE_FRAME,
-					0,
-					0);
-			else
-				move_metasprite(cursor_metasprites[cursor.anim_frame],
-					OFFSET_SPRITE_CURSOR + OFFSET_CURSOR_FRAME,
-					SPRITE_FRAME,
-					cursor.pile_idx * 16u,
-					(cursor.height + 3u - scroll) * 8u);
-			break;
+					cursor.height * 16u + SETTINGS_SPLIT_X * 8u,
+					SETTINGS_PAD_Y * 8u + cursor.pile_idx * 32u);
+				break;
+			case FLAG_GAME_STATE_LEADERBOARD:
+				if (selected_leaderboard) {
+					set_sprite_tile(SPRITE_FRAME, OFFSET_SPRITE_CURSOR + OFFSET_CURSOR_UNDERLINE + cursor.anim_frame);
+					move_sprite(SPRITE_FRAME, (LEADERBOARD_NAME_X + 1u) * 8u + cursor.pile_idx * 8u, 16u + cursor.height * 8u);
+				}
+				break;
+			case FLAG_GAME_STATE_INGAME:
+				if (cursor.pile_idx == PILE_IDX_DECK)
+					move_metasprite(cursor_metasprites[cursor.anim_frame],
+						OFFSET_SPRITE_CURSOR + OFFSET_CURSOR_FRAME,
+						SPRITE_FRAME,
+						0,
+						0);
+				else
+					move_metasprite(cursor_metasprites[cursor.anim_frame],
+						OFFSET_SPRITE_CURSOR + OFFSET_CURSOR_FRAME,
+						SPRITE_FRAME,
+						cursor.pile_idx * 16u,
+						(cursor.height + 3u - scroll) * 8u);
+				break;
 		}
 	}
+
 	if (flags & FLAG_REDRAW_HAND) {
 		flags &= ~FLAG_REDRAW_HAND;
 		if (cursor.held_card) {
@@ -1005,7 +1002,7 @@ void pile_append_cursor_stack(Pile *pile)
 	while (top_card->next_card)
 		top_card = top_card->next_card;
 	pile->top = top_card;
-	cursor.height = pile->height - !!pile->height;
+	cursor.height = pile->height - ((pile->height) ? 1 : 0);
 	pile->height += cursor.held_stack_size;
 	if (cursor.hand_pile_idx != cursor.pile_idx) {
 		UINT8 piles_to_clear = 0;
@@ -1074,18 +1071,18 @@ void start_splash_screen(void)
 
 void start_leaderboard(void)
 {
-	ENABLE_RAM_MBC1;
+	ENABLE_RAM;
 	flags &= ~FLAG_GAME_STATE;
 	flags |= FLAG_GAME_STATE_LEADERBOARD;
 	cursor.pile_idx = 0;
 	clear_bkg();
 	draw_bkg_leaderboard();
-	DISABLE_RAM_MBC1;
+	DISABLE_RAM;
 }
 
 void add_leaderboard(void)
 {
-	ENABLE_RAM_MBC1;
+	ENABLE_RAM;
 	LeaderBoard *iter = leaderboard[NUM_SUITS(settings)];
 	UINT8 i;
 	for (i = 0; i < 3u; i++) {
@@ -1102,12 +1099,12 @@ void add_leaderboard(void)
 	selected_leaderboard = iter;
 	cursor.height = LEADERBOARD_PAD_Y + NUM_SUITS(settings) * 4u + i;
 	flags |= FLAG_REDRAW_CURSOR;
-	DISABLE_RAM_MBC1;
+	DISABLE_RAM;
 }
 
 void nvram_check(void)
 {
-	ENABLE_RAM_MBC1;
+	ENABLE_RAM;
 	if (nvram_check_data != NVRAM_SET) {
 		nvram_check_data = NVRAM_SET;
 		LeaderBoard *iter = IDX_PTR(leaderboard[0], 0u);
@@ -1127,12 +1124,12 @@ void nvram_check(void)
 			}
 		}
 	}
-	DISABLE_RAM_MBC1;
+	DISABLE_RAM;
 }
 
 void inc_letter(const INT8 inc)
 {
-	ENABLE_RAM_MBC1;
+	ENABLE_RAM;
 	UINT8 *letter = &selected_leaderboard->name[cursor.pile_idx];
 	*letter = (INT8)*letter + inc;
 	if (*letter < 0x0Bu)
@@ -1140,7 +1137,7 @@ void inc_letter(const INT8 inc)
 	else if (*letter > 0x24u)
 		*letter = 0x0Bu;
 	set_bkg_tile_xy(LEADERBOARD_NAME_X + cursor.pile_idx, cursor.height, *letter);
-	DISABLE_RAM_MBC1;
+	DISABLE_RAM;
 }
 
 inline void input_process(void)
@@ -1264,15 +1261,36 @@ inline void input_process(void)
 	prev_input = input;
 }
 
+void font_relocate(UINT8 tile) NAKED {
+	(void)tile;
+	__asm
+		ld hl, #font_first_free_tile
+		ld (hl), a
+		ret
+	__endasm;
+}
+
 void main(void)
 {
+	DISPLAY_OFF;
+	MAP_OVERLAP_SPR;
+	SPRITES_8x8;
+
 	font_init();
+	font_relocate(OFFSET_BKG_NONE);
 	font_t font = font_load(font_min);
 	font_set(font);
+
+	clear_bkg();
+
 	set_bkg_data(OFFSET_BKG_FONT_ADDON, N_FONT_ADDON, font_addon);
 
 	set_bkg_data(OFFSET_BKG_TITLE, N_TITLE, title_textures);
 	set_bkg_data(OFFSET_BKG_CARD, N_CARD, card_textures);
+
+	set_sprite_data(OFFSET_SPRITE_TITLE, N_TITLE, title_textures);
+	set_sprite_data(OFFSET_SPRITE_CARD, N_CARD, card_textures);
+
 	set_bkg_data(OFFSET_BKG_CARD_ADDON, N_CARD_ADDON, card_addon);
 	set_bkg_data(OFFSET_BKG_BUTTON, N_BUTTON, button_textures);
 	set_sprite_data(OFFSET_SPRITE_CURSOR, N_CURSOR, cursor_textures);
@@ -1285,7 +1303,7 @@ void main(void)
 	SHOW_SPRITES;
 	DISPLAY_ON;
 
-	while (1) {
+	for (;;) {
 		input_process();
 
 		cursor_process();
