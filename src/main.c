@@ -577,7 +577,7 @@ inline void dynamic_metasprite_splash_screen(void)
 
 void dynamic_metasprite_fold_pile(void)
 {
-	UINT8 pile_idx = (dynamic_metasprite.data[3] & 0xF) - 1;
+	UINT8 pile_idx = dynamic_metasprite.data[3] & 0xF;
 	if (!pile_idx) {
 		dynamic_metasprite_end_animation();
 		if (num_folded_piles == 8u) { //NOTE: THIS IS WHERE GAME ENDS
@@ -593,6 +593,7 @@ void dynamic_metasprite_fold_pile(void)
 	}
 
 	num_folded_piles++;
+	pile_idx--;
 
 	Pile *pile = IDX_PTR(piles, pile_idx);
 	UINT8 x = pile_idx * 16u;
@@ -604,7 +605,7 @@ void dynamic_metasprite_fold_pile(void)
 		13u,
 		pile->base,
 		0,
-		(dynamic_metasprite.data[3] >> 4u) - 1);
+		dynamic_metasprite.data[3] >> 4u);
 	pile->base = NULL;
 	pile->top = NULL;
 	pile->height = 0;
