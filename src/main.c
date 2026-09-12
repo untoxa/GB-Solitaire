@@ -577,7 +577,7 @@ inline void dynamic_metasprite_splash_screen(void)
 
 void dynamic_metasprite_fold_pile(void)
 {
-	UINT8 pile_idx = dynamic_metasprite.data[3] & 0xF;
+	UINT8 pile_idx = (dynamic_metasprite.data[3] & 0xF) - 1;
 	if (!pile_idx) {
 		dynamic_metasprite_end_animation();
 		if (num_folded_piles == 8u) { //NOTE: THIS IS WHERE GAME ENDS
@@ -604,7 +604,7 @@ void dynamic_metasprite_fold_pile(void)
 		13u,
 		pile->base,
 		0,
-		dynamic_metasprite.data[3] >> 4u);
+		(dynamic_metasprite.data[3] >> 4u) - 1);
 	pile->base = NULL;
 	pile->top = NULL;
 	pile->height = 0;
@@ -1007,11 +1007,11 @@ void pile_append_cursor_stack(Pile *pile)
 	if (cursor.hand_pile_idx != cursor.pile_idx) {
 		UINT8 piles_to_clear = 0;
 		if (src_pile->height == 13u && is_stack_coherent(src_pile->base)) {
-			piles_to_clear = cursor.pile_idx;
+			piles_to_clear = cursor.pile_idx + 1;
 		}
 		if (pile->height == 13u && is_stack_coherent(pile->base)) {
 			cursor.height = 0;
-			piles_to_clear |= piles_to_clear ? cursor.hand_pile_idx << 4u : cursor.hand_pile_idx;
+			piles_to_clear |= (piles_to_clear) ? ((cursor.hand_pile_idx + 1) << 4u) : (cursor.hand_pile_idx + 1);
 		}
 
 		if (cursor.card_to_show)
